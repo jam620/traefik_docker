@@ -152,12 +152,29 @@ services:
 
   nginx:
     image: nginx:alpine
-    container_name: nginx
-    restart: unless-stopped
-    tty: true
+    container_name: nginx_docker
+    ports:
+      - "8083:80"
+    volumes:
+      - ./src:/var/www/html
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+      - db2
     networks:
       - webgateway
-    
+  
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: php_fmp
+    volumes:
+      - ./src:/var/www/html
+    ports:
+      - "9000:9000"
+    networks:
+      - webgateway  
 
 #Env configurations
 networks:
