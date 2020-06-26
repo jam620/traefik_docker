@@ -1,0 +1,193 @@
+version: "3"
+
+services:
+  traefik:
+    image: traefik:v2.2
+    command:
+      #- "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    networks:
+      - webgateway
+    ports:
+      # The HTTP port
+      - "80:80"
+      # The Web UI (enabled by --api.insecure=true)
+      - "8080:8080"
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock # Volumen local y del contenedor
+      # ./traefik.toml:/traefik.toml # Traefik configuration
+      #- ./acme.json:/acme.json # SSL certificates
+
+  #Base de datos para wordpress Domain 1
+  db:
+    container_name: mysql
+    image: mysql:5.7
+    volumes:
+      - wp_db:/var/lib/mysql/
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: somewordpress
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+    networks:
+      - wp
+
+  #Base de datos DB 2
+  db2:
+    container_name: mysql2
+    image: mysql:5.7
+    volumes:
+      - wp_db2:/var/lib/mysql/
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: somewordpress2
+      MYSQL_DATABASE: wordpress2
+      MYSQL_USER: wordpress2
+      MYSQL_PASSWORD: wordpress2
+    networks:
+      - wp
+
+  #Contenedor 1 de wordpress Domain 1
+  wordpress:
+    depends_on:
+      - db
+    container_name: wordpress
+    image: wordpress:latest
+    volumes:
+      - wp_statics:/var/www/html/
+    ports:
+      - 8000:80
+    restart: always
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+    networks:
+      - wp
+      - webgateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.domain1.rule=Host(`domain1.localhost`)"
+      - "traefik.http.routers.domain1.entrypoints=web"
+
+
+  #Contenedor 2 de wordpress Domain 2
+  wordpress2:
+    depends_on:
+      - db
+    container_name: wordpress2
+    image: wordpress:latest
+    volumes:
+      - wp_statics:/var/www/html/
+    ports:
+      - 8001:80
+    restart: always
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+    networks:
+      - wp
+      - webgateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.domain2.rule=Host(`domain2.localhost`)"
+      - "traefik.http.routers.domain2.entrypoints=web"
+
+  #PHPMyAdmin para la gestiòn de la db de Wordpress 1
+  phpmyadmin:
+    depends_on:
+      - db
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    ports:
+      - 7777:80
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: password
+    networks:
+      - wp
+      - webgateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.domain3.rule=Host(`domain3.localhost`)"
+      - "traefik.http.routers.domain3.entrypoints=web"
+
+  #PHPmyAdmin para la db 2
+  phpmyadmin2:
+    depends_on:
+      - db2
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    ports:
+      - 7778:80
+    environment:
+      PMA_HOST: db2
+      MYSQL_ROOT_PASSWORD: password
+    networks:
+      - wp
+      - webgateway
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.domain4.rule=Host(`domain4.localhost`)"
+      - "traefik.http.routers.domain4.entrypoints=web"
+
+  # Domain 7 para owncloud
+  owncloud:
+    container_name: owncloud
+    ports:
+      - "8082:80"
+    image: "owncloud:8.2.0"
+    volumes:
+      - owncloud_data:/var/www/html
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.domain7.rule=Host(`domain7.localhost`)"
+      - "traefik.http.routers.domain7.entrypoints=web"
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    tty: true
+    networks:
+      - webgateway
+    
+
+#Env configurations
+networks:
+  wp:
+  webgateway:
+    driver: bridge
+
+volumes:
+  wp_db:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/traefikParcial/db
+  wp_statics:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/traefikParcial/statics
+  owncloud_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/traefikParcial/owncloud
+  wp_db2:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/traefikParcial/db2
+
