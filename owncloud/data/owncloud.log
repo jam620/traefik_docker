@@ -1,0 +1,1 @@
+{"reqId":"n7THAdDp5z1x5h3mfiJ1","remoteAddr":"77.247.108.119","app":"PHP","message":"touch(): Unable to create file \/var\/www\/html\/data\/owncloud.log because No such file or directory at \/var\/www\/html\/lib\/private\/log\/owncloud.php#53","level":3,"time":"2020-06-26T17:52:45+00:00"}
